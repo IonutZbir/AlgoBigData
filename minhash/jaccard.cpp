@@ -35,23 +35,23 @@ void print(const Container& v1, const Container& v2){
 
 float jaccard_sim(set<int> &a, set<int> &b){
         
-        vector<int> intersection;
+    vector<int> intersection;
 
-        set_intersection(
-            a.begin(), a.end(),
-            b.begin(), b.end(),
-            back_inserter(intersection) 
-        );
+    set_intersection(
+        a.begin(), a.end(),
+        b.begin(), b.end(),
+        back_inserter(intersection) 
+    );
 
-        int sz_a = size(a);
-        int sz_b = size(b);
-        int sz_i = size(intersection);
+    int sz_a = size(a);
+    int sz_b = size(b);
+    int sz_i = size(intersection);
 
-        float jsim = (float) sz_i / (sz_a + sz_b - sz_i);
+    float jsim = (float) sz_i / (sz_a + sz_b - sz_i);
 
-        // cout << sz_i << " " << sz_a << " " << sz_b << endl;
+    // cout << sz_i << " " << sz_a << " " << sz_b << endl;
 
-        return jsim;
+    return jsim;
 }
 
 int generate_sets_and_compute_jsim(size_t tests, string file_name){
@@ -157,7 +157,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    vector<string> files = {"sets_jsim.csv", "sets_jsim_" + string(argv[2]) + ".csv"};
+    vector<string> files = {"files_sets/sets_jsim.csv", "sets_jsim_" + string(argv[2]) + ".csv"};
 
     size_t tests = static_cast<size_t>(stoi(argv[1]));
     float threshold = static_cast<float>(stof(argv[2]));
