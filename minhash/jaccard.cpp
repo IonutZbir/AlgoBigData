@@ -167,8 +167,6 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    srand(time(0)); // Not used anymore
-
     if(generate_sets_and_compute_jsim(tests, files[0]) < 0){
         cerr << "[Error]: Failed to open the file!" << endl;
     }else{
