@@ -4,10 +4,11 @@
 #include <set>
 #include <algorithm>
 #include <random>
+#include <format>
 
 using namespace std;
 
-#define MOD 1000
+#define MOD 100000
 
 template <typename Container>
 void write_on_file(const Container& v1, const Container& v2, float jsim, ofstream &file) {
@@ -22,15 +23,17 @@ void write_on_file(const Container& v1, const Container& v2, float jsim, ofstrea
 }
 
 template <typename Container>
-void print(const Container& v1, const Container& v2){
-    for (const auto& elem : v1) {
+void print(const Container& v, string end){
+    for (const auto& elem : v) {
         cout << elem << " ";
     }
-    cout << ", ";
-    for (const auto& elem : v2) {
-        cout << elem << " ";
-    }
-    cout << ", " <<  endl;
+    cout << end;
+}
+
+template <typename Container>
+void print_double(const Container& v1, const Container& v2){
+    print(v1, "\n");
+    print(v2, "");
 }
 
 float jaccard_sim(set<int> &a, set<int> &b){
@@ -94,7 +97,7 @@ int generate_sets_and_compute_jsim(size_t tests, string file_name){
 vector<set<int>> generate_sets(float threshold){
     random_device rd;
     mt19937 gen(rd());
-    uniform_int_distribution<int> dist_u(1, 20);        
+    uniform_int_distribution<int> dist_u(30, 60);        
     uniform_int_distribution<int> dist_val(0, MOD - 1); 
 
     int size_u = dist_u(gen); 
@@ -103,12 +106,18 @@ vector<set<int>> generate_sets(float threshold){
 
     set<int> intersection, set_a, set_b;
 
-    while ((int)intersection.size() < size_i) {
+    while ((int)intersection.size() < size_i + (size_i * 0.1)) { // why (size_i * c)?? how much should be c?
         intersection.insert(dist_val(gen));
     }
 
     int remain_a = remain / 2;
     int remain_b = remain - remain_a;
+
+    if(remain_a < remain_b){
+        remain_a += 1;
+    }else if (remain_b < remain_a){
+        remain_b += 1;
+    }
 
     while ((int)set_a.size() < remain_a) {
         int val = dist_val(gen);
@@ -124,8 +133,8 @@ vector<set<int>> generate_sets(float threshold){
         }
     }
     
-    set_a.merge(set<int>(intersection));
-    set_b.merge(intersection);
+    set_a.insert(intersection.begin(), intersection.end());
+    set_b.insert(intersection.begin(), intersection.end());
 
     return {set_a, set_b};
 }
@@ -151,13 +160,102 @@ int generate_sets_with_threshold(size_t tests, string file_name, float threshold
     return 0;
 }
 
+int generate_n_sets_with_threshold(size_t tests, string file_name, float threshold) {
+    random_device rd;
+    mt19937 gen(rd());
+    uniform_int_distribution<int> dist_u(150, 200);        
+    uniform_int_distribution<int> dist_val(0, MOD - 1); 
+
+    int size_u = 100 * tests;
+    int size_i = static_cast<int>(size_u * threshold); 
+    int remain = size_u - size_i;
+
+    set<int> intersection;
+    vector<set<int>> sets;
+
+    // Generate intersection elements with a buffer
+    while ((int)intersection.size() < size_i) {
+        intersection.insert(dist_val(gen));
+    }
+
+    cout << "[INFO]: Size Union: " << size_u 
+         << " | Size Intersection: " << size_i 
+         << " | Remain: " << remain 
+         << " | Elements Per Set: " << remain / tests << endl;
+
+    // Generate remaining pool of unique elements
+    set<int> remaining_pool;
+    while ((int)remaining_pool.size() < remain) {
+        int val = dist_val(gen);
+        if (intersection.count(val) == 0) { // Ensure no overlap with intersection
+            remaining_pool.insert(val);
+        }
+    }
+
+    // Convert remaining pool to vector and shuffle
+    vector<int> remaining_elements(remaining_pool.begin(), remaining_pool.end());
+    shuffle(remaining_elements.begin(), remaining_elements.end(), gen);
+
+    // Distribute remaining elements across sets
+    size_t elements_per_set = remain / tests;
+    size_t leftover_elements = remain % tests;
+
+    size_t idx = 0;
+    for (size_t i = 0; i < tests; i++) {
+        sets.push_back(set<int>());
+
+        // Assign elements_per_set + 1 to the first few sets for leftover elements
+        size_t num_elements = elements_per_set + (i < leftover_elements ? 1 : 0);
+
+        for (size_t j = 0; j < num_elements; j++) {
+            sets[i].insert(remaining_elements[idx++]);
+        }
+    }
+
+    // Add intersection elements to each set
+    for (auto& s : sets) {
+        s.insert(intersection.begin(), intersection.end());
+    }
+
+    // Write sets to the file
+    ofstream jaccard_file(file_name);
+    if (!jaccard_file.is_open()) {
+        return -1;
+    }
+
+    vector<float> jsims;
+    for (size_t i = 0; i < tests; i++) {
+        for (size_t j = i + 1; j < tests; j++) {
+            float jaccard = jaccard_sim(sets[i], sets[j]);
+            jsims.push_back(jaccard);
+        }
+    }
+
+    for (const auto& s : sets) {
+        for (const auto& elem : s) {
+            jaccard_file << elem << " ";
+        }
+        jaccard_file << "\n";
+    }
+
+    for (const auto& jsim : jsims) {
+        jaccard_file << jsim << " ";
+    }
+
+    return 0;
+}
+
+
 int main(int argc, char* argv[]) {
     if (argc < 3) {
         cerr << "[INFO]: Usage - make run ARGS=\"n_of_tests threshold\"" << endl;
         return -1;
     }
 
-    vector<string> files = {"files_sets/sets_jsim.csv", "sets_jsim_" + string(argv[2]) + ".csv"};
+    string dir = "files_sets/";
+    vector<string> files = {dir + "sets_jsim.csv",
+    dir + "sets_jsim_" + string(argv[2]) + ".csv",
+    dir + string(argv[1]) + "sets_jsim_" + string(argv[2]) + ".csv"};
 
     size_t tests = static_cast<size_t>(stoi(argv[1]));
     float threshold = static_cast<float>(stof(argv[2]));
@@ -177,6 +275,12 @@ int main(int argc, char* argv[]) {
         cerr << "[Error]: Failed to open the file!" << endl;
     }else{
         cout << "[INFO]: The file '" << files[1] << "' was written successfully!" << endl;
+    }
+
+    if(generate_n_sets_with_threshold(tests, files[2], threshold) < 0){
+        cerr << "[Error]: Failed to open the file!" << endl;
+    }else{
+        cout << "[INFO]: The file '" << files[2] << "' was written successfully!" << endl;
     }
 
     return 0;
